@@ -1,106 +1,3 @@
-# import instaloader
-# from pathlib import Path
-# import json, re, shutil, time, random
-# from django.conf import settings
-# from django.http import JsonResponse
-# from api.models import UserSession
-
-# def download_instagram_stories(request, url):
-#     """
-#     Downloads Instagram stories for a target user using the same pattern as reel download.
-#     """
-#     sessionid = request.COOKIES.get("sessionid")
-
-#     if not sessionid:
-#         return JsonResponse(
-#             {"error": "Session ID not provided", "requires_login": True}, status=401
-#         )
-
-#     user_session = UserSession.objects.filter(session_id=sessionid).first()
-#     if not user_session:
-#         return JsonResponse(
-#             {"error": "No session found. Please log in again.", "requires_login": True},
-#             status=401,
-#         )
-
-#     try:
-#         # Extract username and story ID from URL
-#         match = re.search(r"stories/([^/]+)/(\d+)", url)
-#         if not match:
-#             return JsonResponse(
-#                 {
-#                     "error": "Invalid Instagram story URL format",
-#                 },
-#                 status=400,
-#             )
-
-#         target_username = match.group(1)
-#         print(f"Target username ===========================> : {target_username}")
-#         story_id = match.group(2)
-
-#         session_data = json.loads(user_session.session_data)
-#         cookies = session_data.get("cookies", [])
-
-#         loader = instaloader.Instaloader(
-#             # download_pictures=True,
-#             # download_videos=True,
-#             # download_video_thumbnails=True,
-#             # download_geotags=False,
-#             # download_comments=False,
-#             # post_metadata_txt_pattern="",
-#             # max_connection_attempts=3,
-#             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-#         )
-
-#         for cookie in cookies:
-#             if "name" in cookie and "value" in cookie:
-#                 loader.context._session.cookies.set(
-#                     cookie["name"], cookie["value"], domain=".instagram.com"
-#                 )
-
-#         time.sleep(random.uniform(1, 2))
-
-#         # Get profile
-#         profile = instaloader.Profile.from_username(loader.context, target_username)
-#         print(f"Profile fetched successfully: {profile}")
-#         target_dir = Path(settings.MEDIA_ROOT) / 'downloads' / 'stories' / target_username
-#         if target_dir.exists():
-#             shutil.rmtree(target_dir)
-#         target_dir.mkdir(parents=True, exist_ok=True)
-#         stories = instaloader.StoryItem.from_mediaid(
-#             loader.context, story_id, target=target_dir
-#         )
-#         # stories = loader.download_storyitem(story_id, target=target_dir)
-#         print(f"Stories for {stories} fetched successfully.")
-#         renamed_file = None
-#         for story in stories:
-#             for item in story.get_items():
-#                 if story_id == str(item.mediaid):
-#                     loader.download_storyitem(item, target=target_dir)
-#                     file_extension = "mp4" if item.is_video else "jpg"
-#                     file_pattern = f"*UTC.{file_extension}"
-#                     matching_files = list(target_dir.glob(file_pattern))
-#                     if matching_files:
-#                         file_path = matching_files[-1]
-#                         print("File found:", file_path)
-#                         media_url = request.build_absolute_uri(
-#                             f"/media/downloads/stories/{target_username}/{file_path.name}"
-#                         )
-#                         renamed_file = media_url
-#                         story_metadata = {"media_url": renamed_file}
-
-#                         return JsonResponse(
-#                             {
-#                                 "status": "success",
-#                                 "media_data": {"media_url": story_metadata},
-#                             }
-#                         )
-
-#         raise FileNotFoundError("Story not found or may have expired.")
-
-#     except Exception as e:
-#         return JsonResponse({"error": str(e)}, status=500)
-
 import urllib.parse
 import re
 import json
@@ -124,7 +21,6 @@ def download_instagram_stories(request, url):
     try:
         # Decode the URL first
         decoded_url = urllib.parse.unquote(url)
-        print(f"Decoded URL: {decoded_url}")
 
         # Extract username, story ID, and igsh parameter
         match = re.search(r"stories/([^/]+)/(\d+)", decoded_url)
@@ -138,10 +34,6 @@ def download_instagram_stories(request, url):
         target_username = match.group(1)
         story_id = match.group(2)
         igsh = igsh_match.group(1) if igsh_match else None
-
-        print(f"Target username: {target_username}")
-        print(f"Story ID: {story_id}")
-        print(f"IGSH: {igsh}")
 
         if not igsh:
             return JsonResponse({"error": "No igsh parameter found in URL"}, status=400)
@@ -179,7 +71,6 @@ def download_instagram_stories(request, url):
 
         # Get profile
         profile = instaloader.Profile.from_username(loader.context, target_username)
-        print(f"Profile fetched successfully: {profile.userid}")
 
         # Setup target directory
         target_dir = Path(settings.MEDIA_ROOT) / 'downloads' / 'stories' / target_username
@@ -189,7 +80,6 @@ def download_instagram_stories(request, url):
 
         # Get stories
         stories = loader.get_stories(userids=[profile.userid])
-        print(f"Stories fetched successfully for user ID: {profile.userid}")
 
         # Try multiple approaches to match using igsh
         story_found = False
@@ -197,11 +87,9 @@ def download_instagram_stories(request, url):
 
         for story in stories:
             for item in story.get_items():
-                print(f"Checking item - MediaID: {item.mediaid}")
 
                 # Log all available attributes for debugging
                 item_attrs = [attr for attr in dir(item) if not attr.startswith("_")]
-                print(f"Available item attributes: {item_attrs}")
 
                 # Approach 1: Try to match igsh with various item properties
                 potential_matches = [
@@ -220,14 +108,12 @@ def download_instagram_stories(request, url):
                 # Check if igsh matches any of these identifiers
                 for potential_match in potential_matches:
                     if igsh in potential_match or potential_match in igsh:
-                        print(f"Found potential match with {potential_match}")
                         story_found = True
                         matched_item = item
                         break
 
                 # Approach 2: If primary story_id matches, use it as fallback
                 if not story_found and story_id == str(item.mediaid):
-                    print(f"Using fallback match with story_id: {item.mediaid}")
                     story_found = True
                     matched_item = item
 
@@ -238,7 +124,6 @@ def download_instagram_stories(request, url):
 
         if not story_found or not matched_item:
             # Try alternative approach: download all current stories and find by timestamp/order
-            print("Direct match failed, trying alternative approach...")
             all_items = []
             for story in stories:
                 all_items.extend(list(story.get_items()))
@@ -264,7 +149,6 @@ def download_instagram_stories(request, url):
             )
 
         # Download the matched item
-        print(f"Downloading story item: {matched_item.mediaid}")
         loader.download_storyitem(matched_item, target=target_dir)
 
         # Find the downloaded file
@@ -274,23 +158,13 @@ def download_instagram_stories(request, url):
 
         if matching_files:
             file_path = matching_files[-1]
-            print("File found:", file_path)
 
             media_url = request.build_absolute_uri(
                 f"/media/downloads/stories/{target_username}/{file_path.name}"
             )
 
-            story_metadata = {
-                "media_url": media_url,
-                "username": target_username,
-                "story_id": story_id,
-                "igsh": igsh,
-                "is_video": matched_item.is_video,
-                "filename": file_path.name,
-                "mediaid": str(matched_item.mediaid),
-                "matching_method": "igsh_based",
-            }
-            return JsonResponse(story_metadata)
+            story_metadata = {"media_url": media_url}
+            return JsonResponse({"status": "success", "media_data": story_metadata})
         else:
             return JsonResponse({"error": "Downloaded file not found"}, status=500)
 
@@ -301,7 +175,6 @@ def download_instagram_stories(request, url):
     except instaloader.exceptions.LoginRequiredException:
         return JsonResponse({"error": "Login required"}, status=401)
     except Exception as e:
-        print(f"Error downloading story: {str(e)}")
         return JsonResponse(
             {"error": f"An error occurred while downloading stories: {str(e)}"},
             status=500,

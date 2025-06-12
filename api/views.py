@@ -13,9 +13,7 @@ from api.utils.download_stories import download_instagram_stories
 
 class LoginView(APIView):
     def post(self, request):
-        print("Login request received --------------------------> :", request.data)
         login_result = login_data(request)
-        print("Login response:", login_result)
         return login_result
         # else:
         #     return Response(
