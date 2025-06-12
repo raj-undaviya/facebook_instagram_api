@@ -6,7 +6,6 @@ from api.models import UserSession
 
 def login_data(request):
     try:
-        print("Login data request received")
         loader = instaloader.Instaloader(
             download_pictures=False,
             download_videos=False,
@@ -70,9 +69,6 @@ def login_data(request):
 
             if existing_user_session:
                 # Username exists, update the sessionid and session_data
-                print(
-                    f"Existing user found: {auth_username}. Updating sessionid from {existing_user_session.session_id} to {session_id}"
-                )
                 existing_user_session.session_id = session_id
                 existing_user_session.session_data = session_data_json
                 existing_user_session.save()
@@ -81,9 +77,6 @@ def login_data(request):
                 action_taken = "updated_existing_user"
             else:
                 # New username, create new entry
-                print(
-                    f"New user: {auth_username}. Creating new session with sessionid: {session_id}"
-                )
                 user_session = UserSession.objects.create(
                     session_id=session_id,
                     username=auth_username,
